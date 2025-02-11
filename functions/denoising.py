@@ -6,15 +6,11 @@ import cv2
 import random
 
 def pink_noise_like(shape):
-    # 生成长度为 np.prod(shape) 的粉红噪声序列
     noise_sequence = cn.powerlaw_psd_gaussian(1, np.prod(shape))
-    # 将序列转换为输入形状
     return noise_sequence.reshape(shape)
 
 def blue_noise_like(shape):
-    # 生成长度为 np.prod(shape) 的蓝噪声序列
     noise_sequence = cn.powerlaw_psd_gaussian(-1, np.prod(shape))
-    # 将序列转换为输入形状
     return noise_sequence.reshape(shape)
 
 
@@ -183,13 +179,10 @@ def FGDM_steps_smooth(x, seq, model, edge_original ,b,total_noise_levels,high_le
             threshold = (total_noise_levels - i) / total_noise_levels
             edge [ edge < threshold ] = 0
 
-            
             if i>total_noise_levels:
                 continue
             if i<high_level:
                 edge = edge*0-1
-
-
 
             t = (torch.ones(n) * i).to(x.device)
             next_t = (torch.ones(n) * j).to(x.device)
@@ -206,11 +199,7 @@ def FGDM_steps_smooth(x, seq, model, edge_original ,b,total_noise_levels,high_le
             c2 = ((1 - at_next) - c1 ** 2).sqrt()
             e_new = torch.tensor(blue_noise_like(x.size()), dtype=torch.float32).to(x.device)
 
-            #if i>289:
-            #    xt_next = at_next.sqrt() * x0_t + c1 * et + c2 * e_new
-            #else:
             xt_next = at_next.sqrt() * x0_t + c1 * e_new + c2 * et
-            
             
             xs.append(xt_next.to('cpu'))
 
@@ -231,11 +220,10 @@ def build_laplacian_pyramid(gaussian_pyramid):
         next_level = cv2.pyrUp(gaussian_pyramid[i + 1], dstsize=(gaussian_pyramid[i].shape[1], gaussian_pyramid[i].shape[0]))
         laplacian = cv2.subtract(gaussian_pyramid[i], next_level)
         laplacian_pyramid.append(laplacian)
-    laplacian_pyramid.append(gaussian_pyramid[-1])  # 最后一层是高斯金字塔的最高层
+    laplacian_pyramid.append(gaussian_pyramid[-1])  
     return laplacian_pyramid
 
 def laplacian_pyramid_merge(img1, img2, levels):
-    # 构建高斯和拉普拉斯金字塔
     gaussian_pyramid1 = build_gaussian_pyramid(img1, levels)
     gaussian_pyramid2 = build_gaussian_pyramid(img2, levels)
     
@@ -244,7 +232,6 @@ def laplacian_pyramid_merge(img1, img2, levels):
 
 
     
-    # 融合拉普拉斯金字塔
     laplacian_pyramid_combined = []
     for index in range(len(laplacian_pyramid1)):
         if index == (len(laplacian_pyramid1) - 1):
@@ -255,7 +242,6 @@ def laplacian_pyramid_merge(img1, img2, levels):
             #print(index, "1", laplacian_pyramid1[index].shape)
 
 
-    # 重建图像
     image_reconstructed = laplacian_pyramid_combined[-1]
     for i in range(levels - 1, -1, -1):
         image_reconstructed = cv2.pyrUp(image_reconstructed, dstsize=(laplacian_pyramid_combined[i].shape[1], laplacian_pyramid_combined[i].shape[0]))
