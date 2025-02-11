@@ -462,12 +462,7 @@ class FGDM(object):
             else:
                 print("Using blue noise")
                 
-                #xs = FGDM_steps_2noise(x, seq, model, edge ,self.betas, eta=self.args.eta, total_noise_levels = total_noise_levels,high_level =high_level )
-                
-                #xs = FGDM_steps(x, seq, model, edge ,self.betas, eta=self.args.eta, total_noise_levels = total_noise_levels,high_level =high_level )
-                
-                xs = FGDM_steps_smooth(x, seq, model, edge ,self.betas, eta=self.args.eta, total_noise_levels = total_noise_levels,high_level =high_level )
-                
+                xs = FGDM_steps_2noise(x, seq, model, edge ,self.betas, eta=self.args.eta, total_noise_levels = total_noise_levels,high_level =high_level )
                 
                 if random.random() > 0.95:
                     torchvision.utils.save_image(torch.cat(xs[0][::20], dim=0).cpu(), os.path.join(self.args.log_path, 'training_show' ,f"train_x_step.png"),normalize=True)
