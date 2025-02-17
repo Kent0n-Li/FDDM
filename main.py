@@ -19,7 +19,7 @@ def parse_args_and_config():
 
     parser.add_argument("--normal_noise", default = False )
     parser.add_argument(
-        "--exp", type=str, default="Brain_FGDM_smooth", help="_normal_noise")
+        "--exp", type=str, default="FDDM", help="_normal_noise")
     parser.add_argument(
         "--sample",
         action="store_true",
@@ -53,7 +53,7 @@ def parse_args_and_config():
     parser.add_argument(
         "--high_level",
         type=int,
-        default=200
+        default=0
     )
 
     parser.add_argument("--test", action="store_true", help="Whether to test the model",default=False)
@@ -211,13 +211,7 @@ def main():
     logging.info("Exp comment = {}".format(args.comment))
 
     try:
-        print("normal moise: ",args.normal_noise)
-        if args.normal_noise == True:
-            FGDM = diffusion_FGDM.FGDM(args, config, normal_noise=True)
-            print("Using normal noise")
-        else:
-            FGDM = diffusion_FGDM.FGDM(args, config, normal_noise=False)
-            print("Using blue noise")
+        FGDM = diffusion_FGDM.FGDM(args, config, normal_noise=False)
 
         if args.sample:
             FGDM.sample()
