@@ -7,11 +7,11 @@ import numpy as np
 import tqdm
 import torch
 import torch.utils.data as data
-from functions.denoising import generalized_steps,FGDM_steps,FGDM_steps_normal_noise, FGDM_steps_2noise, FGDM_steps_smooth
+from functions.denoising import generalized_steps,FDDM_steps,FDDM_steps_normal_noise, FDDM_steps_2noise, FDDM_steps_smooth
 from models.diffusion import Model
 from models.ema import EMAHelper
 from functions import get_optimizer
-from functions.losses import loss_registry, loss_registry_FGDM
+from functions.losses import loss_registry, loss_registry_FDDM
 from datasets import get_dataset, data_transform, inverse_data_transform
 from functions.ckpt_util import get_ckpt_path
 import random
@@ -36,7 +36,7 @@ def blue_noise_like(shape):
 
 
 
-class CBCTDataset_FGDM(data.Dataset):
+class TrainDataset_FDDM(data.Dataset):
     def __init__(self, path, size=None, test=None):
         self.img = os.listdir(path)
         random.shuffle(self.img)
@@ -93,7 +93,7 @@ class CBCTDataset_FGDM(data.Dataset):
         return size
 
 
-class Dataset_FGDM_test(data.Dataset):
+class Dataset_FDDM_test(data.Dataset):
     def __init__(self, path_low, path_high, size=None, test=None, fraction=1, rank=0):
         self.img = os.listdir(path_low)
 
@@ -119,12 +119,10 @@ class Dataset_FGDM_test(data.Dataset):
         imagename_low = os.path.join(self.path_low, self.img[item])
         #print(imagename)
         npimg = cv2.imread(imagename_low, cv2.IMREAD_GRAYSCALE)
-        #npimg = np.transpose(npimg, (2, 0, 1))[0]
         npimg = npimg / 255
         
         imagename_high = os.path.join(self.path_high, self.img[item])
         npimg_high = cv2.imread(imagename_high, cv2.IMREAD_GRAYSCALE)
-        #npimg_high = np.transpose(npimg_high, (2, 0, 1))[0]
         npimg_high = npimg_high / 255
 
         npimg = npimg.astype(np.float32)
@@ -187,7 +185,7 @@ def get_beta_schedule(beta_schedule, *, beta_start, beta_end, num_diffusion_time
     return betas
 
 
-class FGDM(object):
+class FDDM(object):
     def __init__(self, args, config, device=None, normal_noise = False):
         self.args = args
         self.config = config
@@ -229,12 +227,9 @@ class FGDM(object):
         os.environ["log_path"] = self.args.log_path
         args, config = self.args, self.config
         tb_logger = self.config.tb_logger 
-        if "Brain" in args.exp:
-            dataset = CBCTDataset_FGDM(path='/data/maia/yzhang/Yunxiang/data/Synth/brain/train/CT_new/', size=config.data.image_size,test=False) 
-        elif "pelvis" in args.exp:
-            dataset = CBCTDataset_FGDM(path='/data/maia/yzhang/Yunxiang/data/Synth/ctmr_pelvis_train/ct/', size=config.data.image_size,test=False)
-        else:
-            return NotImplementedError
+        
+        dataset = TrainDataset_FDDM(path='', size=config.data.image_size,test=False) 
+
 
         train_loader = data.DataLoader(
             dataset,
@@ -279,8 +274,6 @@ class FGDM(object):
                 x = x.to(self.device)
                 y = y.to(self.device)
 
-                #if random.random() > 0.5:
-                    #y = y*0 -1 
 
                 x = data_transform(self.config, x)
 
@@ -299,7 +292,7 @@ class FGDM(object):
                     low=0, high=self.num_timesteps, size=(n // 2 + 1,)
                 ).to(self.device)
                 t = torch.cat([t, self.num_timesteps - t - 1], dim=0)[:n]
-                loss = loss_registry_FGDM[config.model.type](model, x, y, t, e, b)
+                loss = loss_registry_FDDM[config.model.type](model, x, y, t, e, b)
 
                 tb_logger.add_scalar("loss", loss, global_step=step)
 
@@ -349,10 +342,8 @@ class FGDM(object):
     def sample(self):
         args, config = self.args, self.config
         model = Model(self.config)
-        if "Brain" in args.exp:
-            test_dataset = Dataset_FGDM_test(path_low='/data/maia/yli/Code/FDDM/GC_UNIT/UNIT-brain/outputs/brain_both_GC2/result',path_high='/data/maia/yli/Code/FDDM/GC_UNIT/UNIT-brain/outputs/brain_both_GC2/high' , size=config.data.image_size,test=False,fraction=args.fraction, rank=args.fraction_rank) 
-        elif "pelvis" in args.exp:
-            test_dataset = Dataset_FGDM_test(path_low='/data/maia/yli/Code/FDDM/GC_UNIT/UNIT-pelvis/135result',path_high='/data/maia/yli/Code/FDDM/GC_UNIT/UNIT-pelvis/high' , size=config.data.image_size,test=False,fraction=args.fraction, rank=args.fraction_rank) 
+        
+        test_dataset = Dataset_FDDM_test(path_low='',path_high='' , size=config.data.image_size,test=False,fraction=args.fraction, rank=args.fraction_rank) 
 
         train_loader = data.DataLoader(
             test_dataset,
@@ -455,18 +446,10 @@ class FGDM(object):
             skip = 1
             seq = range(0, self.num_timesteps, skip)
 
-            #self.normal_noise = True
-            if self.normal_noise:
-                print("Using normal noise")
-                xs = FGDM_steps_normal_noise(x, seq, model, edge ,self.betas, eta=self.args.eta, total_noise_levels = total_noise_levels,high_level =high_level)
-            else:
-                print("Using blue noise")
-                
-                xs = FGDM_steps_2noise(x, seq, model, edge ,self.betas, eta=self.args.eta, total_noise_levels = total_noise_levels,high_level =high_level )
-                
-                if random.random() > 0.95:
-                    torchvision.utils.save_image(torch.cat(xs[0][::20], dim=0).cpu(), os.path.join(self.args.log_path, 'training_show' ,f"train_x_step.png"),normalize=True)
-                    torchvision.utils.save_image(torch.cat(xs[1][::20], dim=0).cpu(), os.path.join(self.args.log_path, 'training_show' ,f"train_x0_step.png"),normalize=True)
+
+            print("Using blue noise")
+            
+            xs = FDDM_steps_2noise(x, seq, model, edge ,self.betas, eta=self.args.eta, total_noise_levels = total_noise_levels,high_level =high_level )
 
             x = xs
         elif self.args.sample_type == "ddpm_noisy":
