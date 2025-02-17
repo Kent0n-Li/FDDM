@@ -59,7 +59,7 @@ def sde_steps(x, seq, model, noise ,b, **kwargs):
 
     return xs, x0_preds
     
-def FGDM_steps_normal_noise(x, seq, model, edge ,b,total_noise_levels,high_level, **kwargs):
+def FDDM_steps_normal_noise(x, seq, model, edge ,b,total_noise_levels,high_level, **kwargs):
     with torch.no_grad():
 
         x = x*2-1
@@ -102,9 +102,9 @@ def FGDM_steps_normal_noise(x, seq, model, edge ,b,total_noise_levels,high_level
 
     return xs, x0_preds
     
-def FGDM_steps(x, seq, model, edge_original ,b,total_noise_levels,high_level, **kwargs):
+def FDDM_steps(x, seq, model, edge_original ,b,total_noise_levels,high_level, **kwargs):
     with torch.no_grad():
-        print("FGDM_steps")
+        print("FDDM_steps")
         x = x*2-1
         e = torch.tensor(blue_noise_like(x.size()), dtype=torch.float32).to(x.device)
         n = x.size(0)
@@ -156,9 +156,9 @@ def FGDM_steps(x, seq, model, edge_original ,b,total_noise_levels,high_level, **
 
     return xs, x0_preds
     
-def FGDM_steps_smooth(x, seq, model, edge_original ,b,total_noise_levels,high_level, **kwargs):
+def FDDM_steps_smooth(x, seq, model, edge_original ,b,total_noise_levels,high_level, **kwargs):
     with torch.no_grad():
-        print("FGDM_steps")
+        print("FDDM_steps")
         x = x*2-1
         e = torch.tensor(blue_noise_like(x.size()), dtype=torch.float32).to(x.device)
         n = x.size(0)
@@ -251,9 +251,9 @@ def laplacian_pyramid_merge(img1, img2, levels):
 
 
 
-def FGDM_steps_2noise(x, seq, model, edge ,b,total_noise_levels,high_level, **kwargs):
+def FDDM_steps_2noise(x, seq, model, edge_original ,b,total_noise_levels,high_level, **kwargs):
     with torch.no_grad():
-        print("FGDM_steps_fused_noise")
+        print("FDDM_steps_fused_noise")
 
         x = x*2-1
         e = torch.tensor(blue_noise_like(x.size()), dtype=torch.float32).to(x.device)
@@ -272,10 +272,12 @@ def FGDM_steps_2noise(x, seq, model, edge ,b,total_noise_levels,high_level, **kw
 
 
         for i, j in zip(reversed(seq), reversed(seq_next)):
+            edge = edge_original.clone()
+            threshold = (total_noise_levels - i) / total_noise_levels
+            edge [ edge < threshold ] = 0
+
             if i>total_noise_levels:
                 continue
-            if i<high_level:
-                edge = edge*0-1
 
 
             t = (torch.ones(n) * i).to(x.device)
